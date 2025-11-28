@@ -1,19 +1,20 @@
 /********************************************************************
- * server/index.js – Railway FIXED VERSION
+ * server/index.js (FINAL — Railway Compatible + CSV FIXED)
  ********************************************************************/
 
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 const fs = require("fs");
-const path = require("path");
 const csv = require("csv-parser");
+const pathModule = require("path");
 const { GoogleGenerativeAI, SchemaType } = require("@google/generative-ai");
 
 const app = express();
+const port = process.env.PORT || 5000;
 
 /* -------------------------------------------------
-   CORS (Frontend + Localhost)
+   CORS
 ------------------------------------------------- */
 app.use(
   cors({
@@ -21,47 +22,34 @@ app.use(
       "https://hair-analyzer-mern.vercel.app",
       "http://localhost:5173",
     ],
-    methods: ["GET", "POST"],
-    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
 app.use(express.json({ limit: "10mb" }));
 
 /* -------------------------------------------------
-   Tips
+   LOAD CSV
 ------------------------------------------------- */
-const hairCareTips = [
-  "Massage your scalp daily for 5-10 minutes to improve blood circulation",
-  "Use a mild, sulfate-free shampoo to avoid stripping natural oils",
-  "Avoid hot water showers as they can dry out your scalp",
-  "Trim your hair regularly every 6-8 weeks to prevent split ends",
-  "Eat a protein-rich diet including eggs, nuts, and fish"
-];
 
-/* -------------------------------------------------
-   Dermatologist Loading
-------------------------------------------------- */
 let dermatologists = [];
 
 const loadDermatologists = () => {
-  const csvPath = path.join(__dirname, "data", "zocdoc.csv");
-
+  const csvPath = pathModule.join(__dirname, "data", "zocdoc.csv"); 
   console.log("Reading CSV from:", csvPath);
 
   if (!fs.existsSync(csvPath)) {
-    console.log("CSV NOT FOUND! Loading fallback data.");
+    console.log("❌ CSV Not Found. Using fallback doctor list.");
     dermatologists = [
       {
-        name: "Dr Sample",
+        name: "Dr. Sample",
         qualification: "MD Dermatology",
         speciality: "Dermatology",
         location: "Mumbai",
         phone: "+91 9876543210",
         address: "Sample Clinic",
         website: "sample.com",
-        registration: "MH-12345"
-      }
+        registration: "MH-12345",
+      },
     ];
     return;
   }
@@ -88,76 +76,100 @@ const loadDermatologists = () => {
           phone: row["phone"] || "",
           address: row["address"] || "",
           website: row["website"] || "",
-          registration: row["registration"] || "N/A"
+          registration: row["registration"] || "N/A",
+          source: "CSV",
         });
       }
     })
     .on("end", () => {
-      console.log(`✔ Loaded ${dermatologists.length} dermatologists`);
+      console.log("Loaded", dermatologists.length, "dermatologists.");
     });
 };
 
 loadDermatologists();
 
 /* -------------------------------------------------
-   Root
+   GEMINI
 ------------------------------------------------- */
-app.get("/", (req, res) => res.send("Backend Running ✔"));
+
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
 /* -------------------------------------------------
-   Doctors API
+   ROOT
 ------------------------------------------------- */
-app.post("/api/doctors", (req, res) => {
-  res.json({
-    total: dermatologists.length,
-    doctors: dermatologists,
-  });
+app.get("/", (req, res) => {
+  res.send("Backend Running ✔ Railway OK");
 });
 
 /* -------------------------------------------------
-   Gemini Image Analysis
+   ANALYZE IMAGE
 ------------------------------------------------- */
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-
 app.post("/api/analyze", async (req, res) => {
-  try {
-    const { base64Image, mimeType } = req.body;
+  const { base64Image, mimeType } = req.body;
 
+  if (!base64Image || !mimeType)
+    return res.status(400).json({ error: "Missing image data" });
+
+  try {
     const model = genAI.getGenerativeModel({
       model: "gemini-2.5-flash",
     });
+
+    const responseSchema = {
+      type: SchemaType.OBJECT,
+      properties: {
+        grade: { type: SchemaType.STRING },
+        percentageLoss: { type: SchemaType.NUMBER },
+        analysisSummary: { type: SchemaType.STRING },
+        tips: { type: SchemaType.ARRAY, items: { type: SchemaType.STRING } },
+        doctorConsultationAdvice: { type: SchemaType.STRING },
+      },
+      required: ["grade", "percentageLoss", "analysisSummary", "tips", "doctorConsultationAdvice"],
+    };
 
     const result = await model.generateContent({
       contents: [
         {
           role: "user",
           parts: [
-            { text: "Analyze scalp image" },
-            { inlineData: { mimeType, data: base64Image } }
+            { text: "Analyze this scalp image." },
+            { inlineData: { mimeType, data: base64Image } },
           ],
         },
       ],
+      systemInstruction: { parts: [{ text: "You are an AI dermatology specialist." }] },
       generationConfig: {
         responseMimeType: "application/json",
+        responseSchema,
       },
     });
 
     const raw = result?.response?.candidates?.[0]?.content?.parts?.[0]?.text;
-    const data = JSON.parse(raw);
+    const cleaned = raw.replace(/```json|```/g, "").trim();
+    const parsed = JSON.parse(cleaned);
 
-    data.additionalHairCareTips = hairCareTips.slice(0, 3);
-
-    res.json(data);
-  } catch (error) {
-    console.log("Gemini error:", error.message);
-    res.status(500).json({ error: "AI Analysis failed" });
+    res.json(parsed);
+  } catch (err) {
+    console.error("Gemini Error:", err.message);
+    res.status(500).json({ error: "Analysis failed" });
   }
 });
 
 /* -------------------------------------------------
-   SERVER START — RAILWAY FIX ✔
+   SEARCH DOCTORS
 ------------------------------------------------- */
-const PORT = process.env.PORT || 5000;
-app.listen(PORT, () => {
-  console.log("Server running on PORT:", PORT);
+app.post("/api/doctors", (req, res) => {
+  const { location } = req.body;
+  if (!location) return res.json({ doctors: [] });
+
+  const filtered = dermatologists.filter((d) =>
+    d.location.toLowerCase().includes(location.toLowerCase())
+  );
+
+  res.json({ doctors: filtered });
 });
+
+/* -------------------------------------------------
+   START SERVER
+------------------------------------------------- */
+app.listen(port, () => console.log(`Server running → ${port}`));
