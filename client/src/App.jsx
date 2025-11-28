@@ -11,7 +11,8 @@ function App() {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('analysis');
 
-  const API_BASE = import.meta.env.VITE_API_BASE_URL; // ⭐ IMPORTANT
+  // ⭐ Correct position + clean syntax
+  const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
   const fileToBase64 = (file) =>
     new Promise((resolve, reject) => {
