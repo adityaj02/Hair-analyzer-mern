@@ -1,0 +1,8 @@
+/* Delete all existing code and replace with these basic rules */
+
+/* This ensures the application takes up at least the full viewport height */
+body {
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+}
