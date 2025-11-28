@@ -11,6 +11,8 @@ function App() {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('analysis');
 
+  const API_BASE = import.meta.env.VITE_API_BASE_URL; // ⭐ IMPORTANT
+
   const fileToBase64 = (file) =>
     new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -50,28 +52,37 @@ function App() {
     );
   };
 
+  /* ---------------------------------------------------
+      UPDATED ANALYSIS FUNCTION WITH DEPLOYED BACKEND
+  --------------------------------------------------- */
   const handleAnalyze = async () => {
     if (!file) return setError('Upload an image first.');
-    if (!location.trim()) return setError('Enter your city or 6-digit PIN code.');
+    if (!location.trim()) return setError('Enter your city or PIN code.');
     setLoading(true);
     setError('');
     setResults(null);
     setDoctors([]);
+
     try {
       const base64Image = await fileToBase64(file);
-      const analyzeRes = await fetch('http://localhost:5000/api/analyze', {
+
+      const analyzeRes = await fetch(`${API_BASE}/api/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ base64Image, mimeType: file.type })
       });
+
       if (!analyzeRes.ok) {
         const err = await analyzeRes.json();
         throw new Error(err.error || `HTTP ${analyzeRes.status}`);
       }
+
       const data = await analyzeRes.json();
       setResults(data);
+
+      // Fetch dermatologist list if needed
       if (data.percentageLoss > 20) {
-        const docRes = await fetch('http://localhost:5000/api/doctors', {
+        const docRes = await fetch(`${API_BASE}/api/doctors`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -79,6 +90,7 @@ function App() {
             specialty: 'dermatology'
           })
         });
+
         if (docRes.ok) {
           const docData = await docRes.json();
           setDoctors(docData.doctors || []);
@@ -176,7 +188,7 @@ function App() {
                 </div>
               </div>
 
-              {/* Location Input */}
+              {/* Location */}
               <div className="bg-slate-700/50 rounded-xl p-6 border border-slate-600">
                 <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
                   <div className="w-6 h-6 bg-teal-500 rounded-full flex items-center justify-center text-sm">2</div>
@@ -206,7 +218,7 @@ function App() {
               </div>
             </div>
 
-            {/* Right Column - Analysis & Actions */}
+            {/* Right Column */}
             <div className="space-y-6">
               <div className="bg-slate-700/50 rounded-xl p-6 border border-slate-600 h-full flex flex-col">
                 <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
@@ -223,6 +235,7 @@ function App() {
                       <p className="text-slate-300 font-medium">Image ready for analysis</p>
                     </div>
                   )}
+
                   <button
                     onClick={handleAnalyze}
                     disabled={!file || !location || loading}
@@ -237,6 +250,7 @@ function App() {
                       'Start AI Analysis'
                     )}
                   </button>
+
                   {error && (
                     <motion.div
                       initial={{ opacity: 0, scale: 0.9 }}
@@ -254,14 +268,14 @@ function App() {
             </div>
           </motion.div>
 
-          {/* Results Section */}
+          {/* Results */}
           {results && (
             <motion.div
               initial={{ opacity: 0, y: 30 }}
               animate={{ opacity: 1, y: 0 }}
               className="mb-8"
             >
-              {/* Tab Navigation */}
+              {/* Tabs */}
               <div className="flex border-b border-slate-700 mb-8">
                 <button
                   onClick={() => setActiveTab('analysis')}
@@ -288,7 +302,6 @@ function App() {
               {/* Analysis Tab */}
               {activeTab === 'analysis' && (
                 <div className="space-y-8">
-                  {/* Quick Stats - Only shown here */}
                   <motion.div
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -298,10 +311,12 @@ function App() {
                       <p className="text-emerald-400 text-sm font-medium mb-2">Hair Loss Grade</p>
                       <p className="text-white font-bold text-xl break-words">{results.grade}</p>
                     </div>
+
                     <div className="bg-teal-900/30 p-4 rounded-xl text-center border border-teal-700 min-h-[120px] flex flex-col justify-center">
                       <p className="text-teal-400 text-sm font-medium mb-2">Affected Area</p>
                       <p className="text-white font-bold text-2xl">{results.percentageLoss}%</p>
                     </div>
+
                     <div className="bg-purple-900/30 p-4 rounded-xl text-center border border-purple-700 min-h-[120px] flex flex-col justify-center">
                       <p className="text-purple-400 text-sm font-medium mb-2">Action Required</p>
                       <p className={`font-bold text-lg ${results.percentageLoss > 30 ? 'text-amber-400' : 'text-green-400'}`}>
@@ -310,6 +325,7 @@ function App() {
                     </div>
                   </motion.div>
 
+                  {/* Insights */}
                   <div className="grid lg:grid-cols-2 gap-8">
                     <motion.div
                       whileHover={{ scale: 1.02 }}
@@ -343,6 +359,7 @@ function App() {
                     </motion.div>
                   </div>
 
+                  {/* Consultation */}
                   <motion.div
                     whileHover={{ scale: 1.01 }}
                     className="bg-gradient-to-br from-amber-900/30 to-slate-800 p-8 rounded-xl border border-amber-700 shadow-lg"
@@ -395,12 +412,17 @@ function App() {
                                 <span className="text-slate-500 text-xl">🏥</span>
                                 <span>{doc.address}</span>
                               </div>
+
                               <div className="flex items-center gap-3">
                                 <span className="text-slate-500 text-xl">📞</span>
-                                <a href={`tel:${doc.phone}`} className="text-emerald-400 hover:text-emerald-300 transition font-medium">
+                                <a
+                                  href={`tel:${doc.phone}`}
+                                  className="text-emerald-400 hover:text-emerald-300 transition font-medium"
+                                >
                                   {doc.phone}
                                 </a>
                               </div>
+
                               {doc.website && (
                                 <div className="flex items-center gap-3">
                                   <span className="text-slate-500 text-xl">🌐</span>
@@ -432,9 +454,8 @@ function App() {
                       <h4 className="text-2xl font-semibold text-slate-300 mb-4">No Dermatologists Found</h4>
                       <p className="text-slate-500 max-w-md mx-auto text-lg">
                         {results.percentageLoss <= 20
-                          ? "Your analysis shows minimal hair loss. Continue monitoring with our recommended tips."
-                          : "Try searching with a different location or check back later for available specialists."
-                        }
+                          ? 'Your analysis shows minimal hair loss. Continue monitoring with our recommended tips.'
+                          : 'Try searching with a different location or check back later for available specialists.'}
                       </p>
                     </div>
                   )}

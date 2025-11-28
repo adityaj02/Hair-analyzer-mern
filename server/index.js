@@ -1,5 +1,6 @@
 /********************************************************************
- * server/index.js (UPDATED FOR GEMINI 2.5 FLASH — SDK 0.24.1 COMPATIBLE)
+ * server/index.js (UPDATED + CLEAN + CORS FIXED)
+ * Gemini 2.5 Flash - SDK 0.24.1 Compatible
  ********************************************************************/
 
 require("dotenv").config();
@@ -11,6 +12,25 @@ const { GoogleGenerativeAI, SchemaType } = require("@google/generative-ai");
 
 const app = express();
 const port = 5000;
+
+/* -------------------------------------------------
+   ENABLE CORS (Required for Vercel Frontend)
+------------------------------------------------- */
+app.use(
+  cors({
+    origin: [
+      "https://hair-analyzer-mern.vercel.app",
+      "http://localhost:5173"
+    ],
+    methods: ["GET", "POST"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+  })
+);
+
+/* -------------------------------------------------
+   PARSE JSON
+------------------------------------------------- */
+app.use(express.json({ limit: "10mb" }));
 
 /* -------------------------------------------------
    HAIR CARE TIPS
@@ -81,18 +101,18 @@ const loadDermatologists = () => {
 loadDermatologists();
 
 /* -------------------------------------------------
-   SERVER SETUP
+   GEMINI INIT
 ------------------------------------------------- */
 
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
 
-app.use(cors());
-app.use(express.json({ limit: "10mb" }));
-
-app.get("/", (req, res) => res.send("Backend Running"));
+/* -------------------------------------------------
+   ROOT CHECK
+------------------------------------------------- */
+app.get("/", (req, res) => res.send("Backend Running ✔"));
 
 /* -------------------------------------------------
-   IMAGE ANALYSIS (Gemini 2.5 Flash – SDK 0.24.1 FORMAT)
+   IMAGE ANALYSIS — GEMINI 2.5 FLASH
 ------------------------------------------------- */
 app.post("/api/analyze", async (req, res) => {
   const { base64Image, mimeType } = req.body;
@@ -103,13 +123,12 @@ app.post("/api/analyze", async (req, res) => {
 
   try {
     const model = genAI.getGenerativeModel({
-      model: "gemini-2.5-flash"   // ✔ CORRECT MODEL NAME
+      model: "gemini-2.5-flash" // ✔ Correct for SDK 0.24.1
     });
 
     const systemInstructionText = `
       Act as an AI Dermatologist specializing in Alopecia.
-      Analyze the scalp image.
-      Respond ONLY in JSON following the schema.
+      Analyze the scalp image and respond ONLY in JSON following the schema.
     `;
 
     const userQuery = "Analyze this scalp image for hair loss.";
@@ -151,8 +170,6 @@ app.post("/api/analyze", async (req, res) => {
         }
       ],
       systemInstruction: { parts: [{ text: systemInstructionText }] },
-
-      // ✔ CORRECT FOR SDK 0.24.1
       generationConfig: {
         responseMimeType: "application/json",
         responseSchema: responseSchema
@@ -160,7 +177,6 @@ app.post("/api/analyze", async (req, res) => {
     });
 
     const raw = result?.response?.candidates?.[0]?.content?.parts?.[0]?.text;
-
     if (!raw) throw new Error("Empty Gemini response");
 
     const cleaned = raw.replace(/```json|```/g, "").trim();
@@ -186,7 +202,7 @@ app.post("/api/analyze", async (req, res) => {
 });
 
 /* -------------------------------------------------
-   START SERVER
+   SERVER START
 ------------------------------------------------- */
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
