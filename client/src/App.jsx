@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { motion } from 'framer-motion';
+
+const glassCard =
+  'rounded-3xl border border-white/20 bg-white/10 backdrop-blur-2xl shadow-[0_20px_80px_rgba(0,0,0,0.45)]';
 
 function App() {
   const [file, setFile] = useState(null);
@@ -11,15 +13,14 @@ function App() {
   const [error, setError] = useState('');
   const [activeTab, setActiveTab] = useState('analysis');
 
-  // ⭐ Correct position + clean syntax
   const API_BASE = import.meta.env.VITE_API_BASE_URL;
 
-  const fileToBase64 = (file) =>
+  const fileToBase64 = (value) =>
     new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onload = () => resolve(reader.result.split(',')[1]);
       reader.onerror = reject;
-      reader.readAsDataURL(file);
+      reader.readAsDataURL(value);
     });
 
   const handleFileChange = (e) => {
@@ -30,15 +31,20 @@ function App() {
       setResults(null);
       setDoctors([]);
       setError('');
-    } else {
-      setFile(null);
-      setPreviewUrl('');
-      setError('Please select a valid image (JPG/PNG).');
+      return;
     }
+
+    setFile(null);
+    setPreviewUrl('');
+    setError('Please select a valid image (JPG/PNG).');
   };
 
   const detectLocation = () => {
-    if (!navigator.geolocation) return setError('Geolocation not supported.');
+    if (!navigator.geolocation) {
+      setError('Geolocation not supported.');
+      return;
+    }
+
     setLoading(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -53,12 +59,17 @@ function App() {
     );
   };
 
-  /* ---------------------------------------------------
-      UPDATED ANALYSIS FUNCTION WITH DEPLOYED BACKEND
-  --------------------------------------------------- */
   const handleAnalyze = async () => {
-    if (!file) return setError('Upload an image first.');
-    if (!location.trim()) return setError('Enter your city or PIN code.');
+    if (!file) {
+      setError('Upload an image first.');
+      return;
+    }
+
+    if (!location.trim()) {
+      setError('Enter your city or PIN code.');
+      return;
+    }
+
     setLoading(true);
     setError('');
     setResults(null);
@@ -66,7 +77,6 @@ function App() {
 
     try {
       const base64Image = await fileToBase64(file);
-
       const analyzeRes = await fetch(`${API_BASE}/api/analyze`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -81,7 +91,6 @@ function App() {
       const data = await analyzeRes.json();
       setResults(data);
 
-      // Fetch dermatologist list if needed
       if (data.percentageLoss > 20) {
         const docRes = await fetch(`${API_BASE}/api/doctors`, {
           method: 'POST',
@@ -115,381 +124,157 @@ function App() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-start justify-center py-8 px-4">
-      <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.8 }}
-        className="w-full max-w-6xl bg-slate-800/80 backdrop-blur-xl border border-slate-700 rounded-2xl shadow-2xl overflow-hidden"
+    <div className="min-h-screen relative overflow-hidden bg-[#05060f] px-4 py-10 text-white">
+      <div className="pointer-events-none absolute -top-24 left-10 h-72 w-72 rounded-full bg-fuchsia-500/20 blur-3xl" />
+      <div className="pointer-events-none absolute top-28 right-0 h-96 w-96 rounded-full bg-sky-500/20 blur-3xl" />
+      <div className="pointer-events-none absolute bottom-0 left-1/2 h-80 w-[42rem] -translate-x-1/2 rounded-full bg-emerald-400/10 blur-3xl" />
+
+      <div
+        className={`relative z-10 mx-auto w-full max-w-6xl p-6 md:p-8 ${glassCard}`}
       >
-        {/* Header */}
-        <div className="bg-gradient-to-r from-slate-900 to-slate-800 border-b border-slate-700 p-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2 }}
-            className="text-center"
-          >
-            <div className="flex items-center justify-center gap-3 mb-4">
-              <div className="w-12 h-12 bg-gradient-to-r from-emerald-500 to-teal-600 rounded-xl flex items-center justify-center shadow-lg">
-                <span className="text-white font-bold text-xl">D</span>
-              </div>
-              <h1 className="text-5xl font-bold bg-gradient-to-r from-emerald-400 to-teal-500 bg-clip-text text-transparent">
-                DermAI
-              </h1>
-            </div>
-            <p className="text-slate-300 text-lg max-w-2xl mx-auto">
-              Advanced scalp analysis powered by AI. Get instant insights and connect with specialized dermatologists.
-            </p>
-          </motion.div>
-        </div>
-
-        {/* Main Content */}
-        <div className="p-8">
-          {/* Input Section */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4 }}
-            className="grid lg:grid-cols-2 gap-8 mb-12"
-          >
-            {/* Left Column - Image Upload */}
-            <div className="space-y-6">
-              <div className="bg-slate-700/50 rounded-xl p-6 border border-slate-600">
-                <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                  <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center text-sm">1</div>
-                  Upload Scalp Image
-                </h3>
-                <div className="border-2 border-dashed border-slate-600 rounded-lg p-6 text-center hover:border-emerald-500 transition-colors">
-                  <input
-                    type="file"
-                    accept="image/jpeg, image/png"
-                    onChange={handleFileChange}
-                    className="hidden"
-                    id="file-upload"
-                  />
-                  <label htmlFor="file-upload" className="cursor-pointer block">
-                    {previewUrl ? (
-                      <div className="relative">
-                        <img src={previewUrl} alt="Preview" className="rounded-lg max-h-64 mx-auto object-cover shadow-lg" />
-                        <div className="absolute top-2 right-2 bg-emerald-500 text-white px-2 py-1 rounded-full text-xs font-medium">
-                          Ready
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="py-8">
-                        <div className="w-16 h-16 bg-slate-600 rounded-full flex items-center justify-center mx-auto mb-4">
-                          <span className="text-2xl">📷</span>
-                        </div>
-                        <p className="text-slate-300 font-medium">Click to upload image</p>
-                        <p className="text-slate-500 text-sm mt-1">JPG or PNG, max 5MB</p>
-                      </div>
-                    )}
-                  </label>
-                </div>
-              </div>
-
-              {/* Location */}
-              <div className="bg-slate-700/50 rounded-xl p-6 border border-slate-600">
-                <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                  <div className="w-6 h-6 bg-teal-500 rounded-full flex items-center justify-center text-sm">2</div>
-                  Your Location
-                </h3>
-                <div className="space-y-4">
-                  <div className="flex gap-3">
-                    <input
-                      type="text"
-                      value={location}
-                      onChange={(e) => setLocation(e.target.value)}
-                      placeholder="Enter city name or PIN code"
-                      className="flex-1 bg-slate-900 border border-slate-600 rounded-lg px-4 py-3 text-white placeholder-slate-500 focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition"
-                    />
-                    <button
-                      onClick={detectLocation}
-                      disabled={loading}
-                      className="px-4 bg-slate-700 hover:bg-slate-600 disabled:bg-slate-800 rounded-lg font-semibold text-white transition flex items-center gap-2"
-                    >
-                      {loading ? '⌛' : '📍'}
-                    </button>
-                  </div>
-                  <p className="text-slate-400 text-sm">
-                    We'll use this to find dermatologists near you. Your data is secure and private.
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Right Column */}
-            <div className="space-y-6">
-              <div className="bg-slate-700/50 rounded-xl p-6 border border-slate-600 h-full flex flex-col">
-                <h3 className="text-xl font-semibold text-white mb-4 flex items-center gap-2">
-                  <div className="w-6 h-6 bg-purple-500 rounded-full flex items-center justify-center text-sm">3</div>
-                  Analysis & Results
-                </h3>
-
-                <div className="flex-1 flex flex-col justify-center">
-                  {previewUrl && (
-                    <div className="text-center mb-6">
-                      <div className="w-20 h-20 mx-auto mb-4 rounded-full bg-gradient-to-r from-emerald-500 to-teal-600 flex items-center justify-center shadow-lg">
-                        <span className="text-2xl">🔍</span>
-                      </div>
-                      <p className="text-slate-300 font-medium">Image ready for analysis</p>
-                    </div>
-                  )}
-
-                  <button
-                    onClick={handleAnalyze}
-                    disabled={!file || !location || loading}
-                    className="w-full bg-gradient-to-r from-emerald-600 to-teal-700 hover:from-emerald-700 hover:to-teal-800 text-white font-semibold py-4 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg transform hover:scale-105 active:scale-95"
-                  >
-                    {loading ? (
-                      <div className="flex items-center justify-center gap-3">
-                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        Analyzing Scalp Image...
-                      </div>
-                    ) : (
-                      'Start AI Analysis'
-                    )}
-                  </button>
-
-                  {error && (
-                    <motion.div
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      className="mt-4 bg-red-900/30 border border-red-700 text-red-200 p-4 rounded-lg"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span>⚠️</span>
-                        <span>{error}</span>
-                      </div>
-                    </motion.div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* Results */}
-          {results && (
-            <motion.div
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mb-8"
-            >
-              {/* Tabs */}
-              <div className="flex border-b border-slate-700 mb-8">
-                <button
-                  onClick={() => setActiveTab('analysis')}
-                  className={`px-6 py-4 font-semibold border-b-2 transition-colors ${
-                    activeTab === 'analysis'
-                      ? 'border-emerald-500 text-emerald-400'
-                      : 'border-transparent text-slate-400 hover:text-slate-300'
-                  }`}
-                >
-                  📊 Analysis Report
-                </button>
-                <button
-                  onClick={() => setActiveTab('doctors')}
-                  className={`px-6 py-4 font-semibold border-b-2 transition-colors ${
-                    activeTab === 'doctors'
-                      ? 'border-emerald-500 text-emerald-400'
-                      : 'border-transparent text-slate-400 hover:text-slate-300'
-                  }`}
-                >
-                  👨‍⚕️ Dermatologists ({doctors.length})
-                </button>
-              </div>
-
-              {/* Analysis Tab */}
-              {activeTab === 'analysis' && (
-                <div className="space-y-8">
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="grid grid-cols-3 gap-4 mb-8"
-                  >
-                    <div className="bg-emerald-900/30 p-4 rounded-xl text-center border border-emerald-700 min-h-[120px] flex flex-col justify-center">
-                      <p className="text-emerald-400 text-sm font-medium mb-2">Hair Loss Grade</p>
-                      <p className="text-white font-bold text-xl break-words">{results.grade}</p>
-                    </div>
-
-                    <div className="bg-teal-900/30 p-4 rounded-xl text-center border border-teal-700 min-h-[120px] flex flex-col justify-center">
-                      <p className="text-teal-400 text-sm font-medium mb-2">Affected Area</p>
-                      <p className="text-white font-bold text-2xl">{results.percentageLoss}%</p>
-                    </div>
-
-                    <div className="bg-purple-900/30 p-4 rounded-xl text-center border border-purple-700 min-h-[120px] flex flex-col justify-center">
-                      <p className="text-purple-400 text-sm font-medium mb-2">Action Required</p>
-                      <p className={`font-bold text-lg ${results.percentageLoss > 30 ? 'text-amber-400' : 'text-green-400'}`}>
-                        {results.percentageLoss > 30 ? 'Consult' : 'Monitor'}
-                      </p>
-                    </div>
-                  </motion.div>
-
-                  {/* Insights */}
-                  <div className="grid lg:grid-cols-2 gap-8">
-                    <motion.div
-                      whileHover={{ scale: 1.02 }}
-                      className="bg-gradient-to-br from-emerald-900/30 to-slate-800 p-8 rounded-xl border border-emerald-700 shadow-lg"
-                    >
-                      <h3 className="text-2xl font-semibold text-emerald-400 mb-6 flex items-center gap-3">
-                        <span className="text-lg">💡</span>
-                        AI Insights
-                      </h3>
-                      <p className="text-slate-200 leading-relaxed text-lg">{results.analysisSummary}</p>
-                    </motion.div>
-
-                    <motion.div
-                      whileHover={{ scale: 1.02 }}
-                      className="bg-gradient-to-br from-teal-900/30 to-slate-800 p-8 rounded-xl border border-teal-700 shadow-lg"
-                    >
-                      <h3 className="text-2xl font-semibold text-teal-400 mb-6 flex items-center gap-3">
-                        <span className="text-lg">⚡</span>
-                        Recommended Actions
-                      </h3>
-                      <ul className="space-y-4">
-                        {results.tips.map((tip, i) => (
-                          <li key={i} className="flex items-start gap-4 text-slate-200">
-                            <span className="w-8 h-8 bg-teal-600 rounded-full flex items-center justify-center text-sm font-bold mt-0.5 flex-shrink-0">
-                              {i + 1}
-                            </span>
-                            <span className="text-lg leading-relaxed">{tip}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </motion.div>
-                  </div>
-
-                  {/* Consultation */}
-                  <motion.div
-                    whileHover={{ scale: 1.01 }}
-                    className="bg-gradient-to-br from-amber-900/30 to-slate-800 p-8 rounded-xl border border-amber-700 shadow-lg"
-                  >
-                    <h3 className="text-2xl font-semibold text-amber-400 mb-4 flex items-center gap-3">
-                      <span className="text-lg">⚠️</span>
-                      Professional Consultation
-                    </h3>
-                    <p className="text-slate-200 text-lg leading-relaxed">{results.doctorConsultationAdvice}</p>
-                  </motion.div>
-                </div>
-              )}
-
-              {/* Doctors Tab */}
-              {activeTab === 'doctors' && (
-                <div>
-                  {doctors.length > 0 ? (
-                    <div>
-                      <div className="flex items-center justify-between mb-8">
-                        <h3 className="text-2xl font-semibold text-white">
-                          Dermatologists near <span className="text-emerald-400">{location}</span>
-                        </h3>
-                        <span className="text-slate-400 text-lg bg-slate-700/50 px-4 py-2 rounded-full">
-                          {doctors.length} specialists found
-                        </span>
-                      </div>
-
-                      <div className="grid lg:grid-cols-2 gap-8">
-                        {doctors.map((doc, i) => (
-                          <motion.div
-                            key={i}
-                            initial={{ opacity: 0, y: 20 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ delay: i * 0.1 }}
-                            whileHover={{ scale: 1.03 }}
-                            className="bg-gradient-to-br from-slate-700/50 to-slate-800 border border-slate-600 p-8 rounded-xl hover:border-emerald-500 transition-all shadow-lg"
-                          >
-                            <div className="flex items-start justify-between mb-6">
-                              <div>
-                                <h4 className="font-bold text-2xl text-white mb-2">{doc.name}</h4>
-                                <p className="text-emerald-300 text-lg">{doc.qualification}</p>
-                              </div>
-                              <div className="bg-emerald-500/20 text-emerald-400 px-4 py-2 rounded-full text-sm font-medium">
-                                Available
-                              </div>
-                            </div>
-
-                            <div className="space-y-4 text-slate-300 text-lg">
-                              <div className="flex items-center gap-3">
-                                <span className="text-slate-500 text-xl">🏥</span>
-                                <span>{doc.address}</span>
-                              </div>
-
-                              <div className="flex items-center gap-3">
-                                <span className="text-slate-500 text-xl">📞</span>
-                                <a
-                                  href={`tel:${doc.phone}`}
-                                  className="text-emerald-400 hover:text-emerald-300 transition font-medium"
-                                >
-                                  {doc.phone}
-                                </a>
-                              </div>
-
-                              {doc.website && (
-                                <div className="flex items-center gap-3">
-                                  <span className="text-slate-500 text-xl">🌐</span>
-                                  <a
-                                    href={`https://${doc.website}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="text-blue-400 hover:text-blue-300 transition font-medium"
-                                  >
-                                    Visit Website
-                                  </a>
-                                </div>
-                              )}
-                            </div>
-
-                            <div className="flex items-center justify-between mt-6 pt-6 border-t border-slate-600">
-                              <span className="text-slate-500 text-sm">Reg: {doc.registration}</span>
-                              <span className="text-slate-500 text-sm">{doc.source}</span>
-                            </div>
-                          </motion.div>
-                        ))}
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="text-center py-16">
-                      <div className="w-24 h-24 bg-slate-700 rounded-full flex items-center justify-center mx-auto mb-6">
-                        <span className="text-3xl">👨‍⚕️</span>
-                      </div>
-                      <h4 className="text-2xl font-semibold text-slate-300 mb-4">No Dermatologists Found</h4>
-                      <p className="text-slate-500 max-w-md mx-auto text-lg">
-                        {results.percentageLoss <= 20
-                          ? 'Your analysis shows minimal hair loss. Continue monitoring with our recommended tips.'
-                          : 'Try searching with a different location or check back later for available specialists.'}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-            </motion.div>
-          )}
-
-          {/* Reset Button */}
-          {results && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="flex justify-center pt-8 border-t border-slate-700"
-            >
-              <button
-                onClick={resetApp}
-                className="bg-slate-700 hover:bg-slate-600 text-slate-200 font-semibold py-4 px-10 rounded-xl transition-all flex items-center gap-3 text-lg"
-              >
-                <span>🔄</span>
-                New Analysis
-              </button>
-            </motion.div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className="bg-slate-900 border-t border-slate-700 p-6 text-center">
-          <p className="text-slate-500 text-sm">
-            Powered by Advanced AI Analysis • Your privacy is protected • Medical-grade insights
+        <header className="mb-8 rounded-3xl border border-white/10 bg-gradient-to-r from-white/10 to-white/5 p-6 text-center md:p-10">
+          <p className="mb-3 text-xs uppercase tracking-[0.4em] text-cyan-200/80">Hair Intelligence Studio</p>
+          <h1 className="text-4xl font-semibold md:text-6xl bg-gradient-to-r from-fuchsia-300 via-cyan-200 to-emerald-200 bg-clip-text text-transparent">
+            TrichoGlass AI
+          </h1>
+          <p className="mx-auto mt-4 max-w-2xl text-sm text-slate-200 md:text-base">
+            Apple-inspired glassmorphic scalp analyzer built for hair-loss grading, personalized guidance, and nearby specialist discovery.
           </p>
+        </header>
+
+        <div className="grid gap-6 lg:grid-cols-2">
+          <section className={`${glassCard} p-5`}>
+            <h2 className="mb-4 text-lg font-semibold text-white/90">1. Upload Hair/Scalp Photo</h2>
+            <input id="upload" type="file" accept="image/jpeg, image/png" onChange={handleFileChange} className="hidden" />
+            <label
+              htmlFor="upload"
+              className="block cursor-pointer rounded-2xl border border-dashed border-cyan-100/40 bg-black/20 p-6 text-center hover:border-cyan-200/70"
+            >
+              {previewUrl ? (
+                <div>
+                  <img src={previewUrl} alt="Scalp preview" className="mx-auto max-h-64 rounded-2xl object-cover shadow-xl" />
+                  <p className="mt-3 text-sm text-emerald-200">Image ready for analysis</p>
+                </div>
+              ) : (
+                <div className="py-8">
+                  <p className="text-4xl">📸</p>
+                  <p className="mt-3 font-medium text-white">Tap to upload image</p>
+                  <p className="text-sm text-slate-300">Use a clear top/headline scalp view (JPG/PNG)</p>
+                </div>
+              )}
+            </label>
+          </section>
+
+          <section className={`${glassCard} p-5`}>
+            <h2 className="mb-4 text-lg font-semibold text-white/90">2. Location & Analyze</h2>
+            <div className="space-y-4">
+              <div className="flex gap-3">
+                <input
+                  type="text"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  placeholder="City or PIN code"
+                  className="w-full rounded-xl border border-white/20 bg-black/20 px-4 py-3 text-sm text-white placeholder:text-slate-300 focus:border-cyan-200 focus:outline-none"
+                />
+                <button
+                  onClick={detectLocation}
+                  disabled={loading}
+                  className="rounded-xl border border-white/20 bg-white/10 px-4 py-3 hover:bg-white/20"
+                >
+                  {loading ? '⌛' : '📍'}
+                </button>
+              </div>
+
+              <button
+                onClick={handleAnalyze}
+                disabled={!file || !location || loading}
+                className="w-full rounded-xl bg-gradient-to-r from-fuchsia-500 via-indigo-500 to-cyan-500 py-3 font-semibold text-white shadow-lg transition disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {loading ? 'Analyzing hair health...' : 'Start Hair Analysis'}
+              </button>
+
+              {error && <p className="rounded-xl border border-rose-300/40 bg-rose-500/20 p-3 text-sm text-rose-100">⚠️ {error}</p>}
+            </div>
+          </section>
         </div>
-      </motion.div>
+
+        {results && (
+          <section className="mt-8">
+            <div className="mb-5 flex gap-2 border-b border-white/10 pb-3">
+              {['analysis', 'doctors'].map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`rounded-full px-4 py-2 text-sm ${
+                    activeTab === tab ? 'bg-white/20 text-cyan-100' : 'bg-white/5 text-slate-300'
+                  }`}
+                >
+                  {tab === 'analysis' ? '📊 Analysis' : `👨‍⚕️ Doctors (${doctors.length})`}
+                </button>
+              ))}
+            </div>
+
+            {activeTab === 'analysis' ? (
+              <div className="grid gap-4 md:grid-cols-3">
+                <article className={`${glassCard} p-4 text-center`}>
+                  <p className="text-xs text-slate-300">Hair Loss Grade</p>
+                  <p className="mt-2 text-2xl font-semibold">{results.grade}</p>
+                </article>
+                <article className={`${glassCard} p-4 text-center`}>
+                  <p className="text-xs text-slate-300">Affected Area</p>
+                  <p className="mt-2 text-2xl font-semibold">{results.percentageLoss}%</p>
+                </article>
+                <article className={`${glassCard} p-4 text-center`}>
+                  <p className="text-xs text-slate-300">Recommendation</p>
+                  <p className="mt-2 text-xl font-semibold text-emerald-200">
+                    {results.percentageLoss > 30 ? 'Consult Doctor' : 'Monitor & Care'}
+                  </p>
+                </article>
+
+                <article className={`${glassCard} p-5 md:col-span-2`}>
+                  <h3 className="mb-2 text-lg font-semibold text-cyan-100">Summary</h3>
+                  <p className="text-sm text-slate-100">{results.analysisSummary}</p>
+                </article>
+                <article className={`${glassCard} p-5`}>
+                  <h3 className="mb-2 text-lg font-semibold text-fuchsia-100">Hair Tips</h3>
+                  <ul className="space-y-2 text-sm text-slate-100">
+                    {results.tips?.map((tip, i) => (
+                      <li key={i}>• {tip}</li>
+                    ))}
+                  </ul>
+                </article>
+
+                <article className={`${glassCard} p-5 md:col-span-3`}>
+                  <h3 className="mb-2 text-lg font-semibold text-amber-100">Doctor Advice</h3>
+                  <p className="text-sm text-slate-100">{results.doctorConsultationAdvice}</p>
+                </article>
+              </div>
+            ) : doctors.length > 0 ? (
+              <div className="grid gap-4 lg:grid-cols-2">
+                {doctors.map((doc, i) => (
+                  <article key={i} className={`${glassCard} p-5`}>
+                    <p className="text-lg font-semibold">{doc.name}</p>
+                    <p className="text-sm text-cyan-100">{doc.qualification}</p>
+                    <p className="mt-3 text-sm text-slate-200">🏥 {doc.address || 'Address not available'}</p>
+                    <p className="text-sm text-slate-200">📞 {doc.phone || 'Phone not available'}</p>
+                    <p className="mt-2 text-xs text-slate-300">Reg: {doc.registration || 'N/A'}</p>
+                  </article>
+                ))}
+              </div>
+            ) : (
+              <p className="rounded-2xl border border-white/15 bg-white/5 p-5 text-slate-200">
+                No dermatologists found for this location yet. Try nearby cities or PIN code.
+              </p>
+            )}
+
+            <div className="mt-8 text-center">
+              <button onClick={resetApp} className="rounded-full border border-white/20 bg-white/10 px-6 py-2 text-sm hover:bg-white/20">
+                🔄 New Analysis
+              </button>
+            </div>
+          </section>
+        )}
+      </div>
     </div>
   );
 }
